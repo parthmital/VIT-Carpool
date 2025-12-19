@@ -14,25 +14,25 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <RidesProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/create" element={<CreateRide />} />
-              <Route path="/ride/:id" element={<RideDetail />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </RidesProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+	<QueryClientProvider client={queryClient}>
+		<AuthProvider>
+			<RidesProvider>
+				<TooltipProvider>
+					<Toaster />
+					<Sonner />
+					<BrowserRouter>
+						<Routes>
+							<Route path="/" element={<Home />} />
+							<Route path="/login" element={<Login />} />
+							<Route path="/create" element={<CreateRide />} />
+							<Route path="/ride/:id" element={<RideDetail />} />
+							<Route path="*" element={<NotFound />} />
+						</Routes>
+					</BrowserRouter>
+				</TooltipProvider>
+			</RidesProvider>
+		</AuthProvider>
+	</QueryClientProvider>
 );
 
 export default App;
