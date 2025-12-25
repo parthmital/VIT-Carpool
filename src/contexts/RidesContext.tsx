@@ -7,12 +7,15 @@ import React, {
 	useEffect,
 } from "react";
 import { Ride } from "@/types/ride";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "./AuthContext";
 
 interface RidesContextType {
 	rides: Ride[];
 	joinedRides: Set<string>;
-	createRide: (ride: Omit<Ride, "id" | "createdAt">) => void;
-	joinRide: (rideId: string) => boolean;
+	isLoading: boolean;
+	createRide: (ride: Omit<Ride, "id" | "createdAt">) => Promise<void>;
+	joinRide: (rideId: string) => Promise<boolean>;
 	getRideById: (id: string) => Ride | undefined;
 	searchRides: (filters: SearchFilters) => Ride[];
 	hasJoinedRide: (rideId: string) => boolean;
@@ -28,101 +31,206 @@ interface SearchFilters {
 
 const RidesContext = createContext<RidesContextType | undefined>(undefined);
 
-// Initial mock data
-const initialRides: Ride[] = [
-	{
-		id: "ride-1",
-		source: "VIT Vellore Campus",
-		destination: "Katpadi Railway Station",
-		date: "2024-12-20",
-		startTime: "09:00",
-		endTime: "10:00",
-		seatsAvailable: 3,
-		creatorId: "user-2",
-		creatorName: "Sarah Chen",
-		creatorEmail: "sarah.chen@vit.ac.in",
-		creatorWhatsApp: "919876543210",
-		createdAt: new Date().toISOString(),
-	},
-	{
-		id: "ride-2",
-		source: "VIT Vellore Campus",
-		destination: "Chennai Airport",
-		date: "2024-12-21",
-		startTime: "14:00",
-		endTime: "15:30",
-		seatsAvailable: 2,
-		creatorId: "user-3",
-		creatorName: "Mike Rodriguez",
-		creatorEmail: "mike.r@vit.ac.in",
-		creatorWhatsApp: "919876543211",
-		createdAt: new Date().toISOString(),
-	},
-	{
-		id: "ride-3",
-		source: "Katpadi Railway Station",
-		destination: "VIT Vellore Campus",
-		date: "2024-12-20",
-		startTime: "17:00",
-		endTime: "18:00",
-		seatsAvailable: 1,
-		creatorId: "user-4",
-		creatorName: "Emily Park",
-		creatorEmail: "emily.park@vit.ac.in",
-		creatorWhatsApp: "919876543212",
-		createdAt: new Date().toISOString(),
-	},
-];
+// Helper function to convert database ride to app Ride type
+const dbRideToRide = (dbRide: any): Ride => ({
+	id: dbRide.id,
+	source: dbRide.source,
+	destination: dbRide.destination,
+	date: dbRide.date,
+	startTime: dbRide.start_time,
+	endTime: dbRide.end_time,
+	seatsAvailable: dbRide.seats_available,
+	creatorId: dbRide.creator_id,
+	creatorName: dbRide.creator_name,
+	creatorEmail: dbRide.creator_email,
+	creatorWhatsApp: dbRide.creator_whatsapp || "",
+	createdAt: dbRide.created_at,
+});
 
 export function RidesProvider({ children }: { children: ReactNode }) {
-	const [rides, setRides] = useState<Ride[]>(initialRides);
+	const [rides, setRides] = useState<Ride[]>([]);
 	const [joinedRides, setJoinedRides] = useState<Set<string>>(new Set());
+	const [isLoading, setIsLoading] = useState(true);
+	const { user } = useAuth();
 
-	// Simulate real-time updates (polling effect)
+	// Load rides from database
 	useEffect(() => {
-		const interval = setInterval(() => {
-			setRides((prev) =>
-				prev.map((ride) => ({
-					...ride,
-					seatsAvailable:
-						Math.random() > 0.95
-							? Math.max(
-									0,
-									ride.seatsAvailable + (Math.random() > 0.5 ? -1 : 1),
-								)
-							: ride.seatsAvailable,
-				})),
-			);
-		}, 5000);
+		loadRides();
+		loadJoinedRides();
+	}, [user]);
 
-		return () => clearInterval(interval);
-	}, []);
+	// Set up real-time subscription for rides
+	useEffect(() => {
+		const channel = supabase
+			.channel("rides-changes")
+			.on(
+				"postgres_changes",
+				{
+					event: "*",
+					schema: "public",
+					table: "rides",
+				},
+				() => {
+					loadRides();
+				},
+			)
+			.subscribe();
 
-	const createRide = useCallback((rideData: Omit<Ride, "id" | "createdAt">) => {
-		const newRide: Ride = {
-			...rideData,
-			id: `ride-${Date.now()}`,
-			createdAt: new Date().toISOString(),
+		return () => {
+			supabase.removeChannel(channel);
 		};
-		setRides((prev) => [newRide, ...prev]);
 	}, []);
 
-	const joinRide = useCallback((rideId: string): boolean => {
-		let success = false;
-		setRides((prev) =>
-			prev.map((ride) => {
-				if (ride.id === rideId && ride.seatsAvailable > 0) {
-					success = true;
-					return { ...ride, seatsAvailable: ride.seatsAvailable - 1 };
-				}
-				return ride;
-			}),
-		);
-		if (success) {
-			setJoinedRides((prev) => new Set(prev).add(rideId));
+	const loadRides = async () => {
+		try {
+			setIsLoading(true);
+			const { data, error } = await supabase
+				.from("rides")
+				.select("*")
+				.order("created_at", { ascending: false });
+
+			if (error) {
+				console.error("Error loading rides:", error);
+				return;
+			}
+
+			if (data) {
+				setRides(data.map(dbRideToRide));
+			}
+		} catch (error) {
+			console.error("Unexpected error loading rides:", error);
+		} finally {
+			setIsLoading(false);
 		}
-		return success;
-	}, []);
+	};
+
+	const loadJoinedRides = async () => {
+		if (!user) {
+			setJoinedRides(new Set());
+			return;
+		}
+
+		try {
+			const { data, error } = await supabase
+				.from("ride_participants")
+				.select("ride_id")
+				.eq("user_id", user.id);
+
+			if (error) {
+				console.error("Error loading joined rides:", error);
+				return;
+			}
+
+			if (data) {
+				setJoinedRides(new Set(data.map((p) => p.ride_id)));
+			}
+		} catch (error) {
+			console.error("Unexpected error loading joined rides:", error);
+		}
+	};
+
+	const createRide = useCallback(
+		async (rideData: Omit<Ride, "id" | "createdAt">) => {
+			if (!user) {
+				throw new Error("User must be authenticated to create a ride");
+			}
+
+			const { data, error } = await supabase
+				.from("rides")
+				.insert({
+					source: rideData.source,
+					destination: rideData.destination,
+					date: rideData.date,
+					start_time: rideData.startTime,
+					end_time: rideData.endTime,
+					seats_available: rideData.seatsAvailable,
+					creator_id: rideData.creatorId,
+					creator_name: rideData.creatorName,
+					creator_email: rideData.creatorEmail,
+					creator_whatsapp: rideData.creatorWhatsApp || null,
+				})
+				.select()
+				.single();
+
+			if (error) {
+				console.error("Error creating ride:", error);
+				throw error;
+			}
+
+			if (data) {
+				// Ride will be added via real-time subscription, but we can add it immediately for better UX
+				setRides((prev) => [dbRideToRide(data), ...prev]);
+			}
+		},
+		[user],
+	);
+
+	const joinRide = useCallback(
+		async (rideId: string): Promise<boolean> => {
+			if (!user) {
+				throw new Error("User must be authenticated to join a ride");
+			}
+
+			// Check if ride exists and has available seats
+			const ride = rides.find((r) => r.id === rideId);
+			if (!ride || ride.seatsAvailable <= 0) {
+				return false;
+			}
+
+			// Check if user already joined
+			if (joinedRides.has(rideId)) {
+				return false;
+			}
+
+			try {
+				// Insert into ride_participants
+				const { error: participantError } = await supabase
+					.from("ride_participants")
+					.insert({
+						ride_id: rideId,
+						user_id: user.id,
+					});
+
+				if (participantError) {
+					console.error("Error joining ride:", participantError);
+					return false;
+				}
+
+				// Update seats available
+				const { error: updateError } = await supabase
+					.from("rides")
+					.update({ seats_available: ride.seatsAvailable - 1 })
+					.eq("id", rideId);
+
+				if (updateError) {
+					console.error("Error updating seats:", updateError);
+					// Rollback participant insertion
+					await supabase
+						.from("ride_participants")
+						.delete()
+						.eq("ride_id", rideId)
+						.eq("user_id", user.id);
+					return false;
+				}
+
+				// Update local state
+				setJoinedRides((prev) => new Set(prev).add(rideId));
+				setRides((prev) =>
+					prev.map((r) =>
+						r.id === rideId
+							? { ...r, seatsAvailable: r.seatsAvailable - 1 }
+							: r,
+					),
+				);
+
+				return true;
+			} catch (error) {
+				console.error("Unexpected error joining ride:", error);
+				return false;
+			}
+		},
+		[user, rides, joinedRides],
+	);
 
 	const getRideById = useCallback(
 		(id: string) => rides.find((ride) => ride.id === id),
@@ -173,6 +281,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			value={{
 				rides,
 				joinedRides,
+				isLoading,
 				createRide,
 				joinRide,
 				getRideById,

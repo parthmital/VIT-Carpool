@@ -104,27 +104,36 @@ export default function CreateRide() {
 
 		setIsSubmitting(true);
 
-		await new Promise((resolve) => setTimeout(resolve, 500));
+		try {
+			await createRide({
+				source: formData.source.trim(),
+				destination: formData.destination.trim(),
+				date: formData.date,
+				startTime: formData.startTime,
+				endTime: formData.endTime,
+				seatsAvailable: parseInt(formData.seatsAvailable),
+				creatorId: user.id,
+				creatorName: user.name,
+				creatorEmail: user.email,
+				creatorWhatsApp: user.whatsApp || "",
+			});
 
-		createRide({
-			source: formData.source.trim(),
-			destination: formData.destination.trim(),
-			date: formData.date,
-			startTime: formData.startTime,
-			endTime: formData.endTime,
-			seatsAvailable: parseInt(formData.seatsAvailable),
-			creatorId: user.id,
-			creatorName: user.name,
-			creatorEmail: user.email,
-			creatorWhatsApp: user.whatsApp || "",
-		});
+			toast({
+				title: "Ride created!",
+				description: "Your ride has been posted successfully.",
+			});
 
-		toast({
-			title: "Ride created!",
-			description: "Your ride has been posted successfully.",
-		});
-
-		navigate("/");
+			navigate("/");
+		} catch (error) {
+			console.error("Error creating ride:", error);
+			toast({
+				title: "Error",
+				description: "Failed to create ride. Please try again.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	return (

@@ -55,18 +55,27 @@ export default function RideDetail() {
 	const isCreator = ride.creatorId === user?.id;
 	const canJoin = ride.seatsAvailable > 0 && !isCreator && !hasJoined;
 
-	const handleJoin = () => {
-		const success = joinRide(ride.id);
-		if (success) {
-			setJustJoined(true);
+	const handleJoin = async () => {
+		try {
+			const success = await joinRide(ride.id);
+			if (success) {
+				setJustJoined(true);
+				toast({
+					title: "Joined ride!",
+					description: "You can now contact the driver via WhatsApp.",
+				});
+			} else {
+				toast({
+					title: "Could not join",
+					description: "This ride may be full. Please try again.",
+					variant: "destructive",
+				});
+			}
+		} catch (error) {
+			console.error("Error joining ride:", error);
 			toast({
-				title: "Joined ride!",
-				description: "You can now contact the driver via WhatsApp.",
-			});
-		} else {
-			toast({
-				title: "Could not join",
-				description: "This ride may be full. Please try again.",
+				title: "Error",
+				description: "Failed to join ride. Please try again.",
 				variant: "destructive",
 			});
 		}

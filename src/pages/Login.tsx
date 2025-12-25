@@ -20,7 +20,8 @@ export default function Login() {
 
 	const handleLogin = async () => {
 		await login();
-		navigate("/");
+		// Note: Supabase OAuth will redirect automatically
+		// The navigate will only happen if OAuth is not configured
 	};
 
 	return (

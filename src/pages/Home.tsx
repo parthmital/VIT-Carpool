@@ -14,7 +14,7 @@ interface SearchFilters {
 }
 
 export default function Home() {
-	const { rides } = useRides();
+	const { rides, isLoading } = useRides();
 	const [filters, setFilters] = useState<SearchFilters>({
 		source: "",
 		destination: "",
@@ -62,12 +62,25 @@ export default function Home() {
 				<div className="space-y-3">
 					<div className="flex items-center justify-between">
 						<h2 className="text-sm font-medium text-muted-foreground">
-							{filteredRides.length}{" "}
-							{filteredRides.length === 1 ? "ride" : "rides"} available
+							{isLoading ? (
+								"Loading rides..."
+							) : (
+								<>
+									{filteredRides.length}{" "}
+									{filteredRides.length === 1 ? "ride" : "rides"} available
+								</>
+							)}
 						</h2>
 					</div>
 
-					{filteredRides.length === 0 ? (
+					{isLoading ? (
+						<div className="flex flex-col items-center justify-center py-12 text-center">
+							<div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+								<Car className="h-6 w-6 text-muted-foreground animate-pulse" />
+							</div>
+							<p className="text-muted-foreground">Loading rides...</p>
+						</div>
+					) : filteredRides.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-12 text-center">
 							<div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
 								<Car className="h-6 w-6 text-muted-foreground" />
