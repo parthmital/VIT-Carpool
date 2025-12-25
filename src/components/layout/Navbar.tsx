@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,31 +17,43 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Car, Plus, LogOut, User, Phone } from "lucide-react";
+import { Car, Plus, LogOut, User, Phone, List, Users2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function Navbar() {
 	const { user, logout, setWhatsApp } = useAuth();
 	const navigate = useNavigate();
+
 	const [editWhatsAppOpen, setEditWhatsAppOpen] = useState(false);
 	const [newWhatsApp, setNewWhatsApp] = useState(user?.whatsApp || "");
 	const [error, setError] = useState("");
 
-	const handleLogout = () => {
-		logout();
+	useEffect(() => {
+		setNewWhatsApp(user?.whatsApp || "");
+	}, [user?.whatsApp]);
+
+	const handleLogout = async () => {
+		await logout();
 		navigate("/");
 	};
 
-	const handleUpdateWhatsApp = (e: React.FormEvent) => {
+	const handleUpdateWhatsApp = async (e: React.FormEvent) => {
 		e.preventDefault();
+
 		const cleaned = newWhatsApp.replace(/\D/g, "");
 		if (cleaned.length < 10 || cleaned.length > 15) {
 			setError("Please enter a valid phone number (10-15 digits)");
 			return;
 		}
-		setWhatsApp(cleaned);
-		setEditWhatsAppOpen(false);
-		setError("");
+
+		try {
+			await setWhatsApp(cleaned);
+			setEditWhatsAppOpen(false);
+			setError("");
+		} catch (e) {
+			console.error("Failed to update WhatsApp:", e);
+			setError("Failed to update WhatsApp. Please try again.");
+		}
 	};
 
 	return (
@@ -69,24 +81,38 @@ export function Navbar() {
 								<Button variant="ghost" size="sm" className="gap-1.5">
 									<User className="h-4 w-4" />
 									<span className="hidden sm:inline">
-										{user?.name?.split(" ")[0]}
+										{user?.name?.split(" ")[0] ?? "Account"}
 									</span>
 								</Button>
 							</DropdownMenuTrigger>
+
 							<DropdownMenuContent
 								align="end"
 								className="bg-background border-border"
 							>
+								<DropdownMenuItem onClick={() => navigate("/manage")}>
+									<List className="h-4 w-4 mr-2" />
+									Manage rides
+								</DropdownMenuItem>
+
+								<DropdownMenuItem onClick={() => navigate("/joined")}>
+									<Users2 className="h-4 w-4 mr-2" />
+									Joined rides
+								</DropdownMenuItem>
+
 								<DropdownMenuItem
 									onClick={() => {
 										setNewWhatsApp(user?.whatsApp || "");
+										setError("");
 										setEditWhatsAppOpen(true);
 									}}
 								>
 									<Phone className="h-4 w-4 mr-2" />
 									Edit WhatsApp
 								</DropdownMenuItem>
+
 								<DropdownMenuSeparator />
+
 								<DropdownMenuItem
 									onClick={handleLogout}
 									className="text-destructive"
@@ -108,6 +134,7 @@ export function Navbar() {
 							Update your WhatsApp number for ride coordination.
 						</DialogDescription>
 					</DialogHeader>
+
 					<form onSubmit={handleUpdateWhatsApp} className="space-y-4">
 						<div className="space-y-2">
 							<Label htmlFor="edit-whatsapp">WhatsApp Number</Label>
@@ -124,6 +151,7 @@ export function Navbar() {
 							/>
 							{error && <p className="text-xs text-destructive">{error}</p>}
 						</div>
+
 						<div className="flex gap-2 justify-end">
 							<Button
 								type="button"

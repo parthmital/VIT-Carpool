@@ -9,29 +9,37 @@ import { useRides } from "@/contexts/RidesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import {
-	MapPin,
 	Calendar,
 	Clock,
 	Users,
-	User,
+	User as UserIcon,
 	ArrowLeft,
 	CheckCircle,
 	AlertCircle,
 	MessageCircle,
 	Copy,
 	ExternalLink,
+	Trash2,
+	LogOut,
+	Pencil,
 } from "lucide-react";
 
 export default function RideDetail() {
 	const { id } = useParams<{ id: string }>();
+	const rideId = id || "";
 	const navigate = useNavigate();
 	const { toast } = useToast();
-	const { getRideById, joinRide, hasJoinedRide } = useRides();
-	const { user } = useAuth();
-	const [justJoined, setJustJoined] = useState(false);
 
-	const ride = getRideById(id || "");
-	const hasJoined = hasJoinedRide(id || "") || justJoined;
+	const { getRideById, joinRide, leaveRide, hasJoinedRide, deleteRide } =
+		useRides();
+	const { user } = useAuth();
+
+	const [justJoined, setJustJoined] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [isLeaving, setIsLeaving] = useState(false);
+
+	const ride = getRideById(rideId);
+	const hasJoined = hasJoinedRide(rideId) || justJoined;
 
 	if (!ride) {
 		return (
@@ -40,7 +48,7 @@ export default function RideDetail() {
 					<AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
 					<h2 className="text-lg font-medium">Ride not found</h2>
 					<p className="text-sm text-muted-foreground mt-1">
-						This ride may have been removed or doesn't exist.
+						This ride may have been removed or doesn&apos;t exist.
 					</p>
 					<Button onClick={() => navigate("/")} className="mt-4">
 						Back to Home
@@ -81,6 +89,56 @@ export default function RideDetail() {
 		}
 	};
 
+	const handleLeave = async () => {
+		const ok = window.confirm("Leave this ride?");
+		if (!ok) return;
+
+		try {
+			setIsLeaving(true);
+			const success = await leaveRide(ride.id);
+			if (success) {
+				setJustJoined(false);
+				toast({ title: "Left ride", description: "You have left this ride." });
+			} else {
+				toast({
+					title: "Could not leave",
+					description: "Please try again.",
+					variant: "destructive",
+				});
+			}
+		} catch (e) {
+			console.error("Leave failed:", e);
+			toast({
+				title: "Error",
+				description: "Failed to leave ride. Please try again.",
+				variant: "destructive",
+			});
+		} finally {
+			setIsLeaving(false);
+		}
+	};
+
+	const handleDelete = async () => {
+		const ok = window.confirm("Delete this ride? This cannot be undone.");
+		if (!ok) return;
+
+		try {
+			setIsDeleting(true);
+			await deleteRide(ride.id);
+			toast({ title: "Ride deleted", description: "Your ride was removed." });
+			navigate("/");
+		} catch (e: any) {
+			console.error("Delete failed:", e);
+			toast({
+				title: "Delete failed",
+				description: e?.message ?? "Could not delete ride",
+				variant: "destructive",
+			});
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
 	const copyWhatsApp = () => {
 		navigator.clipboard.writeText(ride.creatorWhatsApp);
 		toast({
@@ -102,7 +160,6 @@ export default function RideDetail() {
 	return (
 		<AppLayout>
 			<div className="max-w-2xl mx-auto space-y-4">
-				{/* Back Button */}
 				<Button
 					variant="ghost"
 					size="sm"
@@ -113,24 +170,38 @@ export default function RideDetail() {
 					Back to rides
 				</Button>
 
-				{/* Ride Details Card */}
 				<Card className="animate-fade-in">
 					<CardHeader className="pb-4">
 						<div className="flex items-start justify-between gap-4">
 							<CardTitle className="text-lg">Ride Details</CardTitle>
-							<div
-								className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
-									ride.seatsAvailable > 0
-										? "bg-success/10 text-success"
-										: "bg-muted text-muted-foreground"
-								}`}
-							>
-								<Users className="h-4 w-4" />
-								{ride.seatsAvailable}{" "}
-								{ride.seatsAvailable === 1 ? "seat" : "seats"} left
+
+							<div className="flex gap-2">
+								{isCreator && (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => navigate(`/ride/${rideId}/edit`)}
+									>
+										<Pencil className="h-4 w-4 mr-2" />
+										Edit
+									</Button>
+								)}
+
+								<div
+									className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
+										ride.seatsAvailable > 0
+											? "bg-success/10 text-success"
+											: "bg-muted text-muted-foreground"
+									}`}
+								>
+									<Users className="h-4 w-4" />
+									{ride.seatsAvailable}{" "}
+									{ride.seatsAvailable === 1 ? "seat" : "seats"} left
+								</div>
 							</div>
 						</div>
 					</CardHeader>
+
 					<CardContent className="space-y-6">
 						{/* Route */}
 						<div className="flex items-start gap-4">
@@ -139,6 +210,7 @@ export default function RideDetail() {
 								<div className="w-0.5 h-8 bg-border" />
 								<div className="h-3 w-3 rounded-full bg-success" />
 							</div>
+
 							<div className="flex-1 space-y-4">
 								<div>
 									<p className="text-xs text-muted-foreground uppercase tracking-wide">
@@ -170,6 +242,7 @@ export default function RideDetail() {
 									<p className="font-medium text-foreground">{formattedDate}</p>
 								</div>
 							</div>
+
 							<div className="flex items-start gap-3">
 								<Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
 								<div>
@@ -185,7 +258,7 @@ export default function RideDetail() {
 
 						{/* Driver */}
 						<div className="flex items-start gap-3">
-							<User className="h-5 w-5 text-muted-foreground mt-0.5" />
+							<UserIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
 							<div>
 								<p className="text-xs text-muted-foreground uppercase tracking-wide">
 									Posted by
@@ -199,17 +272,41 @@ export default function RideDetail() {
 							</div>
 						</div>
 
-						{/* Join Button or Status */}
-						<div className="pt-2">
+						{/* Join / Joined / Leave / Delete */}
+						<div className="pt-2 space-y-2">
 							{isCreator ? (
-								<div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-									<CheckCircle className="h-4 w-4" />
-									This is your ride
+								<div className="space-y-2">
+									<div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+										<CheckCircle className="h-4 w-4" />
+										This is your ride
+									</div>
+
+									<Button
+										variant="destructive"
+										className="w-full"
+										onClick={handleDelete}
+										disabled={isDeleting}
+									>
+										<Trash2 className="h-4 w-4 mr-2" />
+										{isDeleting ? "Deleting..." : "Delete ride"}
+									</Button>
 								</div>
 							) : hasJoined ? (
-								<div className="flex items-center gap-2 text-sm text-success bg-success/10 rounded-lg p-3">
-									<CheckCircle className="h-4 w-4" />
-									You have joined this ride
+								<div className="space-y-2">
+									<div className="flex items-center gap-2 text-sm text-success bg-success/10 rounded-lg p-3">
+										<CheckCircle className="h-4 w-4" />
+										You have joined this ride
+									</div>
+
+									<Button
+										variant="outline"
+										className="w-full"
+										onClick={handleLeave}
+										disabled={isLeaving}
+									>
+										<LogOut className="h-4 w-4 mr-2" />
+										{isLeaving ? "Leaving..." : "Leave ride"}
+									</Button>
 								</div>
 							) : (
 								<Button
@@ -225,7 +322,6 @@ export default function RideDetail() {
 					</CardContent>
 				</Card>
 
-				{/* WhatsApp Contact Card - Only shown after joining */}
 				{hasJoined && !isCreator && (
 					<Card className="animate-fade-in border-success/30 bg-success/5">
 						<CardHeader className="pb-3">
@@ -234,10 +330,12 @@ export default function RideDetail() {
 								Contact Driver
 							</CardTitle>
 						</CardHeader>
+
 						<CardContent className="space-y-4">
 							<p className="text-sm text-muted-foreground">
 								Coordinate pickup details directly with the driver on WhatsApp.
 							</p>
+
 							<div className="flex flex-col sm:flex-row gap-2">
 								<Button
 									onClick={openWhatsApp}
@@ -246,6 +344,7 @@ export default function RideDetail() {
 									<ExternalLink className="h-4 w-4 mr-2" />
 									Chat on WhatsApp
 								</Button>
+
 								<Button
 									variant="outline"
 									onClick={copyWhatsApp}

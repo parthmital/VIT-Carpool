@@ -5,11 +5,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RidesProvider } from "@/contexts/RidesContext";
+
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import CreateRide from "./pages/CreateRide";
 import RideDetail from "./pages/RideDetail";
 import NotFound from "./pages/NotFound";
+
+import ManageRides from "./pages/ManageRides";
+import JoinedRides from "./pages/JoinedRides";
+import EditRide from "./pages/EditRide";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +35,13 @@ const App = () => (
 							<Route path="/" element={<Home />} />
 							<Route path="/login" element={<Login />} />
 							<Route path="/create" element={<CreateRide />} />
+
+							<Route path="/manage" element={<ManageRides />} />
+							<Route path="/joined" element={<JoinedRides />} />
+
 							<Route path="/ride/:id" element={<RideDetail />} />
+							<Route path="/ride/:id/edit" element={<EditRide />} />
+
 							<Route path="*" element={<NotFound />} />
 						</Routes>
 					</BrowserRouter>
