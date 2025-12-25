@@ -14,6 +14,22 @@ export default function Login() {
 	const { login, isLoading, isAuthenticated } = useAuth();
 	const navigate = useNavigate();
 
+	// Wait for auth to finish loading before checking authentication
+	if (isLoading) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-background p-4">
+				<Card className="w-full max-w-sm">
+					<CardContent className="pt-6">
+						<div className="flex flex-col items-center justify-center py-8">
+							<Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+							<p className="text-sm text-muted-foreground">Loading...</p>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+
 	if (isAuthenticated) {
 		return <Navigate to="/" replace />;
 	}

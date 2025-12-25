@@ -9,7 +9,16 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-	const { isAuthenticated, needsWhatsApp, setWhatsApp } = useAuth();
+	const { isAuthenticated, isLoading, needsWhatsApp, setWhatsApp } = useAuth();
+
+	// Wait for auth to finish loading before checking authentication
+	if (isLoading) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-background">
+				<div className="text-muted-foreground">Loading...</div>
+			</div>
+		);
+	}
 
 	if (!isAuthenticated) {
 		return <Navigate to="/login" replace />;

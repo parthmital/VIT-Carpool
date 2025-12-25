@@ -44,11 +44,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange(async (event, session) => {
+			console.log("Auth state changed:", event, session?.user?.email);
 			if (event === "SIGNED_IN" && session?.user) {
+				setIsLoading(true);
 				await loadUserProfile(session.user);
 			} else if (event === "SIGNED_OUT") {
 				setUser(null);
 				setIsLoading(false);
+			} else if (event === "TOKEN_REFRESHED" && session?.user) {
+				// Refresh user profile if needed
+				if (!user) {
+					setIsLoading(true);
+					await loadUserProfile(session.user);
+				}
 			}
 		});
 
@@ -59,14 +67,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	const loadUserProfile = async (supabaseUser: SupabaseUser) => {
 		try {
+			console.log("Loading user profile for:", supabaseUser.email);
+
 			// Validate email domain
 			const emailDomain = supabaseUser.email?.split("@")[1]?.toLowerCase();
+			console.log("Email domain:", emailDomain);
+			console.log("Allowed domains:", ALLOWED_DOMAINS);
+
 			if (
 				!emailDomain ||
 				!ALLOWED_DOMAINS.some((domain) =>
 					emailDomain.endsWith(domain.toLowerCase()),
 				)
 			) {
+				console.error("Email domain not allowed:", emailDomain);
 				await supabase.auth.signOut();
 				alert("Please sign in with a college email address");
 				setIsLoading(false);
@@ -74,43 +88,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			}
 
 			// Get or create user profile
-			const { data: profile, error: profileError } = await supabase
-				.from("user_profiles")
-				.select("*")
-				.eq("id", supabaseUser.id)
-				.single();
+			console.log("Fetching user profile for ID:", supabaseUser.id);
+			console.log(
+				"Supabase URL configured:",
+				!!import.meta.env.VITE_SUPABASE_URL,
+			);
 
-			if (profileError && profileError.code === "PGRST116") {
-				// Profile doesn't exist, create it
-				const { data: newProfile, error: createError } = await supabase
+			let profile: any = null;
+			let profileError: any = null;
+
+			try {
+				const { data, error } = await supabase
 					.from("user_profiles")
-					.insert({
-						id: supabaseUser.id,
-						email: supabaseUser.email!,
-						name:
-							supabaseUser.user_metadata?.full_name ||
-							supabaseUser.email!.split("@")[0],
-						photo_url:
-							supabaseUser.user_metadata?.avatar_url ||
-							supabaseUser.user_metadata?.picture,
-					})
-					.select()
+					.select("*")
+					.eq("id", supabaseUser.id)
 					.single();
 
-				if (createError) {
-					console.error("Error creating profile:", createError);
+				profile = data;
+				profileError = error;
+			} catch (error: any) {
+				console.error("Error during profile fetch:", error);
+				profileError = error;
+			}
+
+			console.log("Profile fetch result:", { profile, profileError });
+
+			if (profileError) {
+				// Check if table doesn't exist (404 or PGRST205)
+				if (
+					profileError.code === "PGRST205" ||
+					profileError.message?.includes("Could not find the table") ||
+					profileError.message?.includes("404")
+				) {
+					console.error(
+						"Database tables not found. Please run the SQL schema in Supabase SQL Editor.",
+					);
+					alert(
+						"Database tables not found. Please run the SQL schema script (supabase-schema.sql) in your Supabase SQL Editor to create the required tables.",
+					);
 					setIsLoading(false);
 					return;
 				}
 
-				setUser({
-					id: newProfile.id,
-					name: newProfile.name,
-					email: newProfile.email,
-					photoUrl: newProfile.photo_url || undefined,
-					whatsApp: newProfile.whatsapp || undefined,
-				});
+				if (profileError.code === "PGRST116") {
+					// Profile doesn't exist, create it
+					console.log("Profile doesn't exist, creating new profile");
+					const { data: newProfile, error: createError } = await supabase
+						.from("user_profiles")
+						.insert({
+							id: supabaseUser.id,
+							email: supabaseUser.email!,
+							name:
+								supabaseUser.user_metadata?.full_name ||
+								supabaseUser.email!.split("@")[0],
+							photo_url:
+								supabaseUser.user_metadata?.avatar_url ||
+								supabaseUser.user_metadata?.picture,
+						})
+						.select()
+						.single();
+
+					if (createError) {
+						console.error("Error creating profile:", createError);
+						// Check if table doesn't exist
+						if (
+							createError.code === "PGRST205" ||
+							createError.message?.includes("Could not find the table") ||
+							createError.message?.includes("404")
+						) {
+							alert(
+								"Database tables not found. Please run the SQL schema script (supabase-schema.sql) in your Supabase SQL Editor to create the required tables.",
+							);
+						} else {
+							alert("Failed to create user profile. Please try again.");
+						}
+						setIsLoading(false);
+						return;
+					}
+
+					console.log("Profile created successfully:", newProfile);
+					setUser({
+						id: newProfile.id,
+						name: newProfile.name,
+						email: newProfile.email,
+						photoUrl: newProfile.photo_url || undefined,
+						whatsApp: newProfile.whatsapp || undefined,
+					});
+				} else {
+					// Other error fetching profile
+					console.error("Error fetching profile:", profileError);
+					alert("Failed to load user profile. Please try again.");
+					return;
+				}
 			} else if (profile) {
+				console.log("Profile loaded successfully:", profile);
 				setUser({
 					id: profile.id,
 					name: profile.name,
@@ -118,10 +189,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					photoUrl: profile.photo_url || undefined,
 					whatsApp: profile.whatsapp || undefined,
 				});
+			} else {
+				console.error("No profile data returned");
+				alert("Failed to load user profile. Please try again.");
 			}
 		} catch (error) {
 			console.error("Error loading user profile:", error);
+			alert("An unexpected error occurred. Please try again.");
 		} finally {
+			console.log("Setting isLoading to false");
 			setIsLoading(false);
 		}
 	};
