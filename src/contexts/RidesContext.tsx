@@ -1,25 +1,16 @@
 import React, {
 	createContext,
-	useContext,
-	useState,
 	useCallback,
-	ReactNode,
+	useContext,
 	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	ReactNode,
 } from "react";
 import { Ride } from "@/types/ride";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
-
-interface RidesContextType {
-	rides: Ride[];
-	joinedRides: Set<string>;
-	isLoading: boolean;
-	createRide: (ride: Omit<Ride, "id" | "createdAt">) => Promise<void>;
-	joinRide: (rideId: string) => Promise<boolean>;
-	getRideById: (id: string) => Ride | undefined;
-	searchRides: (filters: SearchFilters) => Ride[];
-	hasJoinedRide: (rideId: string) => boolean;
-}
 
 interface SearchFilters {
 	source?: string;
@@ -29,9 +20,22 @@ interface SearchFilters {
 	endTime?: string;
 }
 
+interface RidesContextType {
+	rides: Ride[];
+	joinedRides: Set<string>;
+	isLoading: boolean;
+	error: string | null;
+	realtimeStatus: string | null;
+	createRide: (ride: Omit<Ride, "id" | "createdAt">) => Promise<void>;
+	joinRide: (rideId: string) => Promise<boolean>;
+	getRideById: (id: string) => Ride | undefined;
+	searchRides: (filters: SearchFilters) => Ride[];
+	hasJoinedRide: (rideId: string) => boolean;
+	reload: () => Promise<void>;
+}
+
 const RidesContext = createContext<RidesContextType | undefined>(undefined);
 
-// Helper function to convert database ride to app Ride type
 const dbRideToRide = (dbRide: any): Ride => ({
 	id: dbRide.id,
 	source: dbRide.source,
@@ -47,95 +51,131 @@ const dbRideToRide = (dbRide: any): Ride => ({
 	createdAt: dbRide.created_at,
 });
 
+function abortableTimeout(ms: number) {
+	const ac = new AbortController();
+	const t = setTimeout(() => ac.abort(), ms);
+	return { ac, cancel: () => clearTimeout(t) };
+}
+
 export function RidesProvider({ children }: { children: ReactNode }) {
+	const { user } = useAuth();
+
 	const [rides, setRides] = useState<Ride[]>([]);
 	const [joinedRides, setJoinedRides] = useState<Set<string>>(new Set());
 	const [isLoading, setIsLoading] = useState(true);
-	const { user } = useAuth();
+	const [error, setError] = useState<string | null>(null);
+	const [realtimeStatus, setRealtimeStatus] = useState<string | null>(null);
 
-	// Load rides from database
-	useEffect(() => {
-		loadRides();
-		loadJoinedRides();
-	}, [user]);
+	// Toggle this off if your network breaks REST when realtime is enabled (rare but useful for isolation)
+	const realtimeEnabled = useMemo(() => true, []);
 
-	// Set up real-time subscription for rides
-	useEffect(() => {
-		const channel = supabase
-			.channel("rides-changes")
-			.on(
-				"postgres_changes",
-				{
-					event: "*",
-					schema: "public",
-					table: "rides",
-				},
-				() => {
-					loadRides();
-				},
-			)
-			.subscribe();
+	const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-		return () => {
-			supabase.removeChannel(channel);
-		};
-	}, []);
+	const loadRides = useCallback(async () => {
+		setIsLoading(true);
+		setError(null);
 
-	const loadRides = async () => {
+		// 15s to reduce false failures; aborts the fetch so it won’t hang forever.
+		const { ac, cancel } = abortableTimeout(15000);
+
 		try {
-			setIsLoading(true);
-			const { data, error } = await supabase
+			const query = supabase
 				.from("rides")
 				.select("*")
-				.order("created_at", { ascending: false });
+				.order("created_at", { ascending: false })
+				.abortSignal(ac.signal); // supported by supabase-js select API [web:150]
 
-			if (error) {
-				console.error("Error loading rides:", error);
+			const { data, error: qErr, status } = await query;
+
+			if (qErr) {
+				console.error("Error loading rides:", { status, qErr });
+				setError(qErr.message ?? "Failed to load rides");
 				return;
 			}
 
-			if (data) {
-				setRides(data.map(dbRideToRide));
-			}
-		} catch (error) {
-			console.error("Unexpected error loading rides:", error);
+			setRides((data ?? []).map(dbRideToRide));
+		} catch (e: any) {
+			// When aborted, supabase-js surfaces a fetch abort error message. [web:150]
+			console.error("Unexpected error loading rides:", e);
+			setError(e?.message ?? "Unexpected error loading rides");
 		} finally {
+			cancel();
 			setIsLoading(false);
 		}
-	};
+	}, []);
 
-	const loadJoinedRides = async () => {
+	const loadJoinedRides = useCallback(async () => {
 		if (!user) {
 			setJoinedRides(new Set());
 			return;
 		}
 
+		const { ac, cancel } = abortableTimeout(15000);
+
 		try {
-			const { data, error } = await supabase
+			const { data, error: qErr } = await supabase
 				.from("ride_participants")
 				.select("ride_id")
-				.eq("user_id", user.id);
+				.eq("user_id", user.id)
+				.abortSignal(ac.signal); // same abort support [web:150]
 
-			if (error) {
-				console.error("Error loading joined rides:", error);
+			if (qErr) {
+				console.error("Error loading joined rides:", qErr);
 				return;
 			}
 
-			if (data) {
-				setJoinedRides(new Set(data.map((p) => p.ride_id)));
-			}
-		} catch (error) {
-			console.error("Unexpected error loading joined rides:", error);
+			setJoinedRides(new Set((data ?? []).map((p: any) => p.ride_id)));
+		} catch (e) {
+			console.error("Unexpected error loading joined rides:", e);
+		} finally {
+			cancel();
 		}
-	};
+	}, [user]);
+
+	const reload = useCallback(async () => {
+		await Promise.all([loadRides(), loadJoinedRides()]);
+	}, [loadRides, loadJoinedRides]);
+
+	useEffect(() => {
+		reload();
+	}, [reload, user?.id]);
+
+	useEffect(() => {
+		if (!realtimeEnabled) return;
+
+		const channel = supabase
+			.channel("rides-changes")
+			.on(
+				"postgres_changes",
+				{ event: "*", schema: "public", table: "rides" },
+				() => {
+					loadRides();
+				},
+			)
+			.subscribe((status, err) => {
+				setRealtimeStatus(status);
+				console.log("Realtime rides status:", status);
+				if (status === "CHANNEL_ERROR" && err)
+					console.error("Realtime error:", err);
+				if (status === "TIMED_OUT") console.warn("Realtime timed out.");
+			});
+
+		channelRef.current = channel;
+
+		return () => {
+			try {
+				if (channelRef.current) supabase.removeChannel(channelRef.current);
+			} finally {
+				channelRef.current = null;
+			}
+		};
+	}, [loadRides, realtimeEnabled]);
 
 	const createRide = useCallback(
 		async (rideData: Omit<Ride, "id" | "createdAt">) => {
-			if (!user) {
-				throw new Error("User must be authenticated to create a ride");
-			}
+			if (!user) throw new Error("User must be authenticated to create a ride");
 
-			const { data, error } = await supabase
+			const { data, error: qErr } = await supabase
 				.from("rides")
 				.insert({
 					source: rideData.source,
@@ -152,51 +192,34 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 				.select()
 				.single();
 
-			if (error) {
-				console.error("Error creating ride:", error);
-				throw error;
+			if (qErr) {
+				console.error("Error creating ride:", qErr);
+				throw qErr;
 			}
 
-			if (data) {
-				// Ride will be added via real-time subscription, but we can add it immediately for better UX
-				setRides((prev) => [dbRideToRide(data), ...prev]);
-			}
+			if (data) setRides((prev) => [dbRideToRide(data), ...prev]);
 		},
 		[user],
 	);
 
 	const joinRide = useCallback(
 		async (rideId: string): Promise<boolean> => {
-			if (!user) {
-				throw new Error("User must be authenticated to join a ride");
-			}
+			if (!user) throw new Error("User must be authenticated to join a ride");
 
-			// Check if ride exists and has available seats
 			const ride = rides.find((r) => r.id === rideId);
-			if (!ride || ride.seatsAvailable <= 0) {
-				return false;
-			}
-
-			// Check if user already joined
-			if (joinedRides.has(rideId)) {
-				return false;
-			}
+			if (!ride || ride.seatsAvailable <= 0) return false;
+			if (joinedRides.has(rideId)) return false;
 
 			try {
-				// Insert into ride_participants
 				const { error: participantError } = await supabase
 					.from("ride_participants")
-					.insert({
-						ride_id: rideId,
-						user_id: user.id,
-					});
+					.insert({ ride_id: rideId, user_id: user.id });
 
 				if (participantError) {
 					console.error("Error joining ride:", participantError);
 					return false;
 				}
 
-				// Update seats available
 				const { error: updateError } = await supabase
 					.from("rides")
 					.update({ seats_available: ride.seatsAvailable - 1 })
@@ -204,7 +227,6 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 
 				if (updateError) {
 					console.error("Error updating seats:", updateError);
-					// Rollback participant insertion
 					await supabase
 						.from("ride_participants")
 						.delete()
@@ -213,7 +235,6 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 					return false;
 				}
 
-				// Update local state
 				setJoinedRides((prev) => new Set(prev).add(rideId));
 				setRides((prev) =>
 					prev.map((r) =>
@@ -224,8 +245,8 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 				);
 
 				return true;
-			} catch (error) {
-				console.error("Unexpected error joining ride:", error);
+			} catch (e) {
+				console.error("Unexpected error joining ride:", e);
 				return false;
 			}
 		},
@@ -233,7 +254,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 	);
 
 	const getRideById = useCallback(
-		(id: string) => rides.find((ride) => ride.id === id),
+		(id: string) => rides.find((r) => r.id === id),
 		[rides],
 	);
 
@@ -246,58 +267,49 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 		(filters: SearchFilters): Ride[] => {
 			return rides.filter((ride) => {
 				if (ride.seatsAvailable === 0) return false;
-
 				if (
 					filters.source &&
 					!ride.source.toLowerCase().includes(filters.source.toLowerCase())
-				) {
+				)
 					return false;
-				}
 				if (
 					filters.destination &&
 					!ride.destination
 						.toLowerCase()
 						.includes(filters.destination.toLowerCase())
-				) {
+				)
 					return false;
-				}
-				if (filters.date && ride.date !== filters.date) {
+				if (filters.date && ride.date !== filters.date) return false;
+				if (filters.startTime && ride.startTime < filters.startTime)
 					return false;
-				}
-				if (filters.startTime && ride.startTime < filters.startTime) {
-					return false;
-				}
-				if (filters.endTime && ride.endTime > filters.endTime) {
-					return false;
-				}
+				if (filters.endTime && ride.endTime > filters.endTime) return false;
 				return true;
 			});
 		},
 		[rides],
 	);
 
+	const value: RidesContextType = {
+		rides,
+		joinedRides,
+		isLoading,
+		error,
+		realtimeStatus,
+		createRide,
+		joinRide,
+		getRideById,
+		searchRides,
+		hasJoinedRide,
+		reload,
+	};
+
 	return (
-		<RidesContext.Provider
-			value={{
-				rides,
-				joinedRides,
-				isLoading,
-				createRide,
-				joinRide,
-				getRideById,
-				searchRides,
-				hasJoinedRide,
-			}}
-		>
-			{children}
-		</RidesContext.Provider>
+		<RidesContext.Provider value={value}>{children}</RidesContext.Provider>
 	);
 }
 
 export function useRides() {
-	const context = useContext(RidesContext);
-	if (context === undefined) {
-		throw new Error("useRides must be used within a RidesProvider");
-	}
-	return context;
+	const ctx = useContext(RidesContext);
+	if (!ctx) throw new Error("useRides must be used within a RidesProvider");
+	return ctx;
 }
