@@ -113,3 +113,82 @@ CREATE POLICY "Authenticated users can join rides" ON ride_participants
 CREATE POLICY "Users can leave rides" ON ride_participants
     FOR DELETE USING (auth.uid() = user_id);
 
+-- New function to handle joining a ride securely
+CREATE OR REPLACE FUNCTION join_ride_transaction(p_ride_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    current_seats INTEGER;
+BEGIN
+    -- Check if the user is already a participant
+    IF EXISTS (SELECT 1 FROM ride_participants WHERE ride_id = p_ride_id AND user_id = p_user_id) THEN
+        RETURN FALSE; -- User already joined
+    END IF;
+
+    -- Get current seats available
+    SELECT seats_available INTO current_seats FROM rides WHERE id = p_ride_id FOR UPDATE; -- FOR UPDATE locks the row
+
+    -- Check if seats are available
+    IF current_seats IS NULL OR current_seats <= 0 THEN
+        RETURN FALSE; -- Ride not found or no seats
+    END IF;
+
+    -- Start a transaction
+    BEGIN
+        -- Decrement seats available
+        UPDATE rides
+        SET seats_available = current_seats - 1
+        WHERE id = p_ride_id;
+
+        -- Add participant
+        INSERT INTO ride_participants (ride_id, user_id)
+        VALUES (p_ride_id, p_user_id);
+
+        RETURN TRUE; -- Success
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- Rollback the transaction in case of any error
+            RAISE NOTICE 'Error in join_ride_transaction: %', SQLERRM;
+            RETURN FALSE;
+    END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- New function to handle leaving a ride securely
+CREATE OR REPLACE FUNCTION leave_ride_transaction(p_ride_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    current_seats INTEGER;
+BEGIN
+    -- Check if the user is a participant
+    IF NOT EXISTS (SELECT 1 FROM ride_participants WHERE ride_id = p_ride_id AND user_id = p_user_id) THEN
+        RETURN FALSE; -- User not a participant
+    END IF;
+
+    -- Get current seats available
+    SELECT seats_available INTO current_seats FROM rides WHERE id = p_ride_id FOR UPDATE; -- FOR UPDATE locks the row
+
+    -- Check if ride exists
+    IF current_seats IS NULL THEN
+        RETURN FALSE; -- Ride not found
+    END IF;
+
+    -- Start a transaction
+    BEGIN
+        -- Increment seats available
+        UPDATE rides
+        SET seats_available = current_seats + 1
+        WHERE id = p_ride_id;
+
+        -- Remove participant
+        DELETE FROM ride_participants
+        WHERE ride_id = p_ride_id AND user_id = p_user_id;
+
+        RETURN TRUE; -- Success
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- Rollback the transaction in case of any error
+            RAISE NOTICE 'Error in leave_ride_transaction: %', SQLERRM;
+            RETURN FALSE;
+    END;
+END;
+$$ LANGUAGE plpgsql;

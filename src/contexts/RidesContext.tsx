@@ -171,7 +171,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 				(payload) => {
 					console.log("Realtime rides event received:", payload);
 					loadRides();
-				},
+				}
 			)
 			.subscribe((status, err) => {
 				setRealtimeStatus(status);
@@ -220,127 +220,82 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 
 			if (data) setRides((prev) => [dbRideToRide(data), ...prev]);
 		},
-		[user],
+		[user]
 	);
 
 	const joinRide = useCallback(
 		async (rideId: string): Promise<boolean> => {
 			if (!user) throw new Error("User must be authenticated to join a ride");
 
-			const ride = rides.find((r) => r.id === rideId);
-			if (!ride || ride.seatsAvailable <= 0) return false;
-			if (joinedRides.has(rideId)) return false;
+			// Call the new Supabase function to handle joining the ride
+			const { data, error: rpcError } = await supabase.rpc(
+				"join_ride_transaction",
+				{ p_ride_id: rideId, p_user_id: user.id }
+			);
 
-			try {
-				const { error: participantError } = await supabase
-					.from("ride_participants")
-					.insert({ ride_id: rideId, user_id: user.id });
-
-				if (participantError) {
-					console.error("Error joining ride:", participantError);
-					return false;
-				}
-
-				console.log(`Attempting to join ride ${rideId}. Current seats: ${ride.seatsAvailable}. New seats: ${ride.seatsAvailable - 1}`);
-				const { error: updateError } = await supabase
-					.from("rides")
-					.update({ seats_available: ride.seatsAvailable - 1 })
-					.eq("id", rideId);
-				if (updateError) {
-					console.error("Supabase update error during join:", updateError);
-				} else {
-					console.log("Supabase update successful during join.");
-				}
-
-				if (updateError) {
-					console.error("Error updating seats:", updateError);
-					await supabase
-						.from("ride_participants")
-						.delete()
-						.eq("ride_id", rideId)
-						.eq("user_id", user.id);
-					return false;
-				}
-
-				setJoinedRides((prev) => new Set(prev).add(rideId));
-				setRides((prev) =>
-					prev.map((r) =>
-						r.id === rideId
-							? { ...r, seatsAvailable: r.seatsAvailable - 1 }
-							: r,
-					),
-				);
-
-				return true;
-			} catch (e) {
-				console.error("Unexpected error joining ride:", e);
+			if (rpcError) {
+				console.error("Error calling join_ride_transaction:", rpcError);
 				return false;
 			}
+
+			if (!data) {
+				// The function returned FALSE, meaning join failed (e.g., no seats or already joined)
+				console.log("Join ride transaction returned false.");
+				return false;
+			}
+
+			// If the RPC call was successful and returned true, update local state
+			setJoinedRides((prev) => new Set(prev).add(rideId));
+			setRides((prev) =>
+				prev.map((r) =>
+					r.id === rideId ? { ...r, seatsAvailable: r.seatsAvailable - 1 } : r
+				)
+			);
+
+			console.log(`Successfully joined ride ${rideId}.`);
+			return true;
 		},
-		[user, rides, joinedRides],
+		[user, rides]
 	);
 
 	const leaveRide = useCallback(
 		async (rideId: string): Promise<boolean> => {
 			if (!user) throw new Error("User must be authenticated to leave a ride");
-			if (!joinedRides.has(rideId)) return false;
 
-			const ride = rides.find((r) => r.id === rideId);
-			if (!ride) return false;
+			// Call the new Supabase function to handle leaving the ride
+			const { data, error: rpcError } = await supabase.rpc(
+				"leave_ride_transaction",
+				{ p_ride_id: rideId, p_user_id: user.id }
+			);
 
-			try {
-				const { error: delErr } = await supabase
-					.from("ride_participants")
-					.delete()
-					.eq("ride_id", rideId)
-					.eq("user_id", user.id);
-
-				// Supabase delete should be combined with filters like eq(). [web:118]
-				if (delErr) {
-					console.error("Error leaving ride (delete participant):", delErr);
-					return false;
-				}
-
-				console.log(`Attempting to leave ride ${rideId}. Current seats: ${ride.seatsAvailable}. New seats: ${ride.seatsAvailable + 1}`);
-				const { error: updErr } = await supabase
-					.from("rides")
-					.update({ seats_available: ride.seatsAvailable + 1 })
-					.eq("id", rideId);
-				if (updErr) {
-					console.error("Supabase update error during leave:", updErr);
-				} else {
-					console.log("Supabase update successful during leave.");
-				}
-
-				if (updErr) {
-					console.error("Error restoring seat count:", updErr);
-					await supabase
-						.from("ride_participants")
-						.insert({ ride_id: rideId, user_id: user.id });
-					return false;
-				}
-
-				setJoinedRides((prev) => {
-					const next = new Set(prev);
-					next.delete(rideId);
-					return next;
-				});
-
-				setRides((prev) =>
-					prev.map((r) =>
-						r.id === rideId
-							? { ...r, seatsAvailable: r.seatsAvailable + 1 }
-							: r,
-					),
-				);
-
-				return true;
-			} catch (e) {
-				console.error("Unexpected error leaving ride:", e);
+			if (rpcError) {
+				console.error("Error calling leave_ride_transaction:", rpcError);
 				return false;
 			}
+
+			if (!data) {
+				// The function returned FALSE, meaning leave failed (e.g., not a participant)
+				console.log("Leave ride transaction returned false.");
+				return false;
+			}
+
+			// If the RPC call was successful and returned true, update local state
+			setJoinedRides((prev) => {
+				const next = new Set(prev);
+				next.delete(rideId);
+				return next;
+			});
+
+			setRides((prev) =>
+				prev.map((r) =>
+					r.id === rideId ? { ...r, seatsAvailable: r.seatsAvailable + 1 } : r
+				)
+			);
+
+			console.log(`Successfully left ride ${rideId}.`);
+			return true;
 		},
-		[user, joinedRides, rides],
+		[user, rides]
 	);
 
 	const deleteRide = useCallback(
@@ -367,14 +322,23 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 				return next;
 			});
 		},
-		[user, rides],
+		[user, rides]
 	);
+
+	interface DbRidePatch {
+		source?: string;
+		destination?: string;
+		date?: string;
+		start_time?: string;
+		end_time?: string;
+		seats_available?: number;
+	}
 
 	const updateRide = useCallback(
 		async (rideId: string, patch: RideEditablePatch) => {
 			if (!user) throw new Error("User must be authenticated to edit a ride");
 
-			const dbPatch: any = {};
+			const dbPatch: DbRidePatch = {};
 			if (patch.source !== undefined) dbPatch.source = patch.source;
 			if (patch.destination !== undefined)
 				dbPatch.destination = patch.destination;
@@ -395,20 +359,20 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			if (error) throw error;
 
 			setRides((prev) =>
-				prev.map((r) => (r.id === rideId ? dbRideToRide(data) : r)),
+				prev.map((r) => (r.id === rideId ? dbRideToRide(data) : r))
 			);
 		},
-		[user],
+		[user]
 	);
 
 	const getRideById = useCallback(
 		(id: string) => rides.find((r) => r.id === id),
-		[rides],
+		[rides]
 	);
 
 	const hasJoinedRide = useCallback(
 		(rideId: string) => joinedRides.has(rideId),
-		[joinedRides],
+		[joinedRides]
 	);
 
 	const getMyRides = useCallback(() => {
@@ -425,7 +389,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			const r = rides.find((x) => x.id === rideId);
 			return !!user && !!r && r.creatorId === user.id;
 		},
-		[rides, user],
+		[rides, user]
 	);
 
 	const searchRides = useCallback(
@@ -451,7 +415,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 				return true;
 			});
 		},
-		[rides],
+		[rides]
 	);
 
 	const value: RidesContextType = {
