@@ -72,8 +72,7 @@ export default function CreateRide() {
 			next.endTime = "End time must be after start time";
 		}
 
-		if (!formData.seatsAvailable)
-			next.seatsAvailable = "Seats available is required";
+		if (!formData.seatsAvailable) next.seatsAvailable = "Seats is required";
 		else if (Number.isNaN(seats) || seats < 1)
 			next.seatsAvailable = "At least 1 seat required";
 		else if (seats > 10) next.seatsAvailable = "Maximum 10 seats";
@@ -113,11 +112,11 @@ export default function CreateRide() {
 				startTime: formData.startTime,
 				endTime: formData.endTime,
 				totalSeats: seats,
-				seatsAvailable: seats,
 				creatorName: user.name,
 				creatorEmail: user.email,
 				creatorWhatsApp: user.whatsApp || "",
-			});
+				creatorId: user.id,
+			} as any);
 
 			toast({
 				title: "Ride created!",

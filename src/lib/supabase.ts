@@ -1,17 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+
 if (!supabaseUrl || !supabaseAnonKey) {
 	console.warn(
 		"Supabase URL and Anon Key are required. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file."
 	);
 }
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 	auth: {
 		persistSession: true,
 		autoRefreshToken: true,
 	},
 });
+
 export interface Database {
 	public: {
 		Tables: {
@@ -62,6 +66,7 @@ export interface Database {
 					created_at?: string;
 				};
 			};
+
 			ride_participants: {
 				Row: {
 					id: string;
@@ -82,6 +87,7 @@ export interface Database {
 					joined_at?: string;
 				};
 			};
+
 			user_profiles: {
 				Row: {
 					id: string;

@@ -1,4 +1,5 @@
-import { useNavigate, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
+
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -12,16 +13,14 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
 	const { login, isLoading, isAuthenticated } = useAuth();
-	const navigate = useNavigate();
 
-	// Wait for auth to finish loading before checking authentication
 	if (isLoading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-background p-4">
+			<div className="flex min-h-screen items-center justify-center bg-background p-4">
 				<Card className="w-full max-w-sm">
 					<CardContent className="pt-6">
 						<div className="flex flex-col items-center justify-center py-8">
-							<Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+							<Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
 							<p className="text-sm text-muted-foreground">Loading...</p>
 						</div>
 					</CardContent>
@@ -36,24 +35,24 @@ export default function Login() {
 
 	const handleLogin = async () => {
 		await login();
-		// Note: Supabase OAuth will redirect automatically
-		// The navigate will only happen if OAuth is not configured
 	};
 
 	return (
-		<div className="min-h-screen flex items-center justify-center bg-background p-4">
+		<div className="flex min-h-screen items-center justify-center bg-background p-4">
 			<Card className="w-full max-w-sm animate-fade-in">
-				<CardHeader className="text-center space-y-3">
+				<CardHeader className="space-y-3 text-center">
 					<div className="flex justify-center">
-						<div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary/10">
+						<div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
 							<Car className="h-6 w-6 text-primary" />
 						</div>
 					</div>
+
 					<CardTitle className="text-xl">VIT Carpool</CardTitle>
 					<CardDescription>
 						Sign in with your college email to find or offer rides
 					</CardDescription>
 				</CardHeader>
+
 				<CardContent>
 					<Button
 						onClick={handleLogin}
@@ -62,18 +61,19 @@ export default function Login() {
 						size="lg"
 					>
 						{isLoading ? (
-							<>
+							<span className="inline-flex items-center gap-2">
 								<Loader2 className="h-4 w-4 animate-spin" />
 								Signing in...
-							</>
+							</span>
 						) : (
-							<>
+							<span className="inline-flex items-center gap-2">
 								<GoogleIcon />
 								Continue with Google
-							</>
+							</span>
 						)}
 					</Button>
-					<p className="text-xs text-center text-muted-foreground mt-4">
+
+					<p className="mt-4 text-center text-xs text-muted-foreground">
 						Only @vitstudent.ac.in emails are allowed
 					</p>
 				</CardContent>

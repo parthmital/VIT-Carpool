@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRides } from "@/contexts/RidesContext";
 import { useNavigate } from "react-router-dom";
-import { Car, Trash2, Pencil } from "lucide-react";
+import { Car, Pencil, Trash2 } from "lucide-react";
 
 export default function ManageRides() {
 	const navigate = useNavigate();
@@ -39,8 +39,9 @@ export default function ManageRides() {
 					<h2 className="text-sm font-medium text-muted-foreground">
 						My rides
 					</h2>
+
 					<Button onClick={() => navigate("/create")}>
-						<Car className="h-4 w-4 mr-2" />
+						<Car className="mr-2 h-4 w-4" />
 						Create ride
 					</Button>
 				</div>
@@ -78,7 +79,8 @@ export default function ManageRides() {
 										{r.source} → {r.destination}
 									</CardTitle>
 								</CardHeader>
-								<CardContent className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+
+								<CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 									<div className="text-sm text-muted-foreground">
 										{r.date} • {r.startTime}–{r.endTime} • {r.seatsAvailable}{" "}
 										seats
@@ -91,18 +93,20 @@ export default function ManageRides() {
 										>
 											View
 										</Button>
+
 										<Button
 											variant="outline"
 											onClick={() => navigate(`/ride/${r.id}/edit`)}
 										>
-											<Pencil className="h-4 w-4 mr-2" />
+											<Pencil className="mr-2 h-4 w-4" />
 											Edit
 										</Button>
+
 										<Button
 											variant="destructive"
 											onClick={() => handleDelete(r.id)}
 										>
-											<Trash2 className="h-4 w-4 mr-2" />
+											<Trash2 className="mr-2 h-4 w-4" />
 											Delete
 										</Button>
 									</div>

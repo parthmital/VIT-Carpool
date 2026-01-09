@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { SearchForm } from "@/components/rides/SearchForm";
 import { RideCard } from "@/components/rides/RideCard";
@@ -15,6 +16,7 @@ interface SearchFilters {
 
 export default function Home() {
 	const { rides, isLoading } = useRides();
+
 	const [filters, setFilters] = useState<SearchFilters>({
 		source: "",
 		destination: "",
@@ -33,6 +35,7 @@ export default function Home() {
 			) {
 				return false;
 			}
+
 			if (
 				filters.destination &&
 				!ride.destination
@@ -41,15 +44,13 @@ export default function Home() {
 			) {
 				return false;
 			}
-			if (filters.date && ride.date !== filters.date) {
-				return false;
-			}
-			if (filters.startTime && ride.startTime < filters.startTime) {
-				return false;
-			}
-			if (filters.endTime && ride.endTime > filters.endTime) {
-				return false;
-			}
+
+			if (filters.date && ride.date !== filters.date) return false;
+
+			if (filters.startTime && ride.startTime < filters.startTime) return false;
+
+			if (filters.endTime && ride.endTime > filters.endTime) return false;
+
 			return true;
 		});
 	}, [rides, filters]);
@@ -75,18 +76,18 @@ export default function Home() {
 
 					{isLoading ? (
 						<div className="flex flex-col items-center justify-center py-12 text-center">
-							<div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-								<Car className="h-6 w-6 text-muted-foreground animate-pulse" />
+							<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+								<Car className="h-6 w-6 animate-pulse text-muted-foreground" />
 							</div>
 							<p className="text-muted-foreground">Loading rides...</p>
 						</div>
 					) : filteredRides.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-12 text-center">
-							<div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+							<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
 								<Car className="h-6 w-6 text-muted-foreground" />
 							</div>
 							<p className="text-muted-foreground">No rides found</p>
-							<p className="text-sm text-muted-foreground mt-1">
+							<p className="mt-1 text-sm text-muted-foreground">
 								Try adjusting your search filters
 							</p>
 						</div>

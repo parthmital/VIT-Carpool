@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
+	CardDescription,
 	CardHeader,
 	CardTitle,
-	CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import { useRides } from "@/contexts/RidesContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { LocationSelect } from "@/components/rides/LocationSelect";
+
 interface FormErrors {
 	source?: string;
 	destination?: string;
@@ -24,18 +26,23 @@ interface FormErrors {
 	endTime?: string;
 	seatsAvailable?: string;
 }
+
 export default function EditRide() {
 	const { id } = useParams<{ id: string }>();
 	const rideId = id || "";
+
 	const navigate = useNavigate();
 	const { toast } = useToast();
 	const { user } = useAuth();
 	const { getRideById, updateRide } = useRides();
+
 	const ride = getRideById(rideId);
+
 	const isCreator = useMemo(
 		() => !!ride && ride.creatorId === user?.id,
 		[ride, user?.id]
 	);
+
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [form, setForm] = useState({
@@ -46,8 +53,10 @@ export default function EditRide() {
 		endTime: "",
 		seatsAvailable: "",
 	});
+
 	useEffect(() => {
 		if (!ride) return;
+
 		setForm({
 			source: ride.source,
 			destination: ride.destination,
@@ -57,30 +66,38 @@ export default function EditRide() {
 			seatsAvailable: String(ride.seatsAvailable),
 		});
 	}, [ride]);
+
 	const validate = (): boolean => {
-		const newErrors: FormErrors = {};
-		const seats = parseInt(form.seatsAvailable);
-		if (!form.source.trim()) newErrors.source = "Source is required";
-		if (!form.destination.trim())
-			newErrors.destination = "Destination is required";
-		if (!form.date) newErrors.date = "Date is required";
-		if (!form.startTime) newErrors.startTime = "Start time is required";
-		if (!form.endTime) newErrors.endTime = "End time is required";
-		if (form.startTime && form.endTime && form.startTime >= form.endTime)
-			newErrors.endTime = "End time must be after start time";
+		const next: FormErrors = {};
+		const seats = parseInt(form.seatsAvailable, 10);
+
+		if (!form.source.trim()) next.source = "Source is required";
+		if (!form.destination.trim()) next.destination = "Destination is required";
+		if (!form.date) next.date = "Date is required";
+		if (!form.startTime) next.startTime = "Start time is required";
+		if (!form.endTime) next.endTime = "End time is required";
+
+		if (form.startTime && form.endTime && form.startTime >= form.endTime) {
+			next.endTime = "End time must be after start time";
+		}
+
 		if (!form.seatsAvailable)
-			newErrors.seatsAvailable = "Seats available is required";
-		else if (isNaN(seats) || seats < 1)
-			newErrors.seatsAvailable = "At least 1 seat required";
-		else if (seats > 10) newErrors.seatsAvailable = "Maximum 10 seats";
-		setErrors(newErrors);
-		return Object.keys(newErrors).length === 0;
+			next.seatsAvailable = "Seats available is required";
+		else if (Number.isNaN(seats) || seats < 1)
+			next.seatsAvailable = "At least 1 seat required";
+		else if (seats > 10) next.seatsAvailable = "Maximum 10 seats";
+
+		setErrors(next);
+		return Object.keys(next).length === 0;
 	};
+
 	const setField = (key: keyof typeof form, value: string) => {
 		setForm((prev) => ({ ...prev, [key]: value }));
-		if (errors[key as keyof FormErrors])
+		if (errors[key as keyof FormErrors]) {
 			setErrors((prev) => ({ ...prev, [key]: undefined }));
+		}
 	};
+
 	if (!ride) {
 		return (
 			<AppLayout>
@@ -95,6 +112,7 @@ export default function EditRide() {
 			</AppLayout>
 		);
 	}
+
 	if (!isCreator) {
 		return (
 			<AppLayout>
@@ -111,9 +129,11 @@ export default function EditRide() {
 			</AppLayout>
 		);
 	}
+
 	const onSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!validate()) return;
+
 		setIsSubmitting(true);
 		try {
 			await updateRide(rideId, {
@@ -122,12 +142,14 @@ export default function EditRide() {
 				date: form.date,
 				startTime: form.startTime,
 				endTime: form.endTime,
-				seatsAvailable: parseInt(form.seatsAvailable),
+				seatsAvailable: parseInt(form.seatsAvailable, 10),
 			});
+
 			toast({
 				title: "Ride updated",
 				description: "Changes saved successfully.",
 			});
+
 			navigate(`/ride/${rideId}`);
 		} catch (err: any) {
 			console.error(err);
@@ -140,14 +162,16 @@ export default function EditRide() {
 			setIsSubmitting(false);
 		}
 	};
+
 	return (
 		<AppLayout>
-			<div className="max-w-lg mx-auto">
+			<div className="mx-auto max-w-lg">
 				<Card className="animate-fade-in">
 					<CardHeader>
 						<CardTitle>Edit Ride</CardTitle>
 						<CardDescription>Update details for your ride.</CardDescription>
 					</CardHeader>
+
 					<CardContent>
 						<form onSubmit={onSubmit} className="space-y-4">
 							<LocationSelect
@@ -158,6 +182,7 @@ export default function EditRide() {
 								placeholder="Select pickup location"
 								error={errors.source}
 							/>
+
 							<LocationSelect
 								id="destination"
 								label="Destination"
@@ -166,6 +191,7 @@ export default function EditRide() {
 								placeholder="Select drop location"
 								error={errors.destination}
 							/>
+
 							<div className="space-y-2">
 								<Label htmlFor="date">Date</Label>
 								<Input
@@ -179,7 +205,8 @@ export default function EditRide() {
 									<p className="text-xs text-destructive">{errors.date}</p>
 								)}
 							</div>
-							<div className="grid grid-cols-2 gap-3">
+
+							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 								<div className="space-y-2">
 									<Label htmlFor="startTime">Start Time</Label>
 									<Input
@@ -195,6 +222,7 @@ export default function EditRide() {
 										</p>
 									)}
 								</div>
+
 								<div className="space-y-2">
 									<Label htmlFor="endTime">End Time</Label>
 									<Input
@@ -209,6 +237,7 @@ export default function EditRide() {
 									)}
 								</div>
 							</div>
+
 							<div className="space-y-2">
 								<Label htmlFor="seatsAvailable">Seats Available</Label>
 								<Input
@@ -226,7 +255,8 @@ export default function EditRide() {
 									</p>
 								)}
 							</div>
-							<div className="flex gap-2 justify-end">
+
+							<div className="flex justify-end gap-2">
 								<Button
 									type="button"
 									variant="outline"
@@ -234,12 +264,13 @@ export default function EditRide() {
 								>
 									Cancel
 								</Button>
+
 								<Button type="submit" disabled={isSubmitting}>
 									{isSubmitting ? (
-										<>
-											<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+										<span className="inline-flex items-center">
+											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 											Saving...
-										</>
+										</span>
 									) : (
 										"Save changes"
 									)}

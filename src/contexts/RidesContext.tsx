@@ -70,6 +70,7 @@ const dbRideToRide = (r: any): Ride => ({
 	date: r.date,
 	startTime: r.start_time,
 	endTime: r.end_time,
+	totalSeats: r.total_seats,
 	seatsAvailable: r.seats_available,
 	creatorId: r.creator_id,
 	creatorName: r.creator_name,
