@@ -86,6 +86,7 @@ export default function CreateRide() {
 				startTime: formData.startTime,
 				endTime: formData.endTime,
 				seatsAvailable: parseInt(formData.seatsAvailable),
+				totalSeats: parseInt(formData.seatsAvailable),
 				creatorId: user.id,
 				creatorName: user.name,
 				creatorEmail: user.email,
