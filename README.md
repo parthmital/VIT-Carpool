@@ -1,92 +1,96 @@
-## VIT Carpool
+# VIT Carpool App
 
-This is a web application designed for carpooling, specifically for the students of Vellore Institute of Technology, Vellore. It allows users to create, join, and manage rides.
+A modern carpooling application designed for the VIT community, built with React, TypeScript, and Supabase. This application allows users to easily find, offer, and manage car rides.
 
-## Tech Stack
+## ✨ Features
 
-**Frontend:**
+- **User Authentication**: Secure login and registration powered by Supabase Auth.
+- **Create & Offer Rides**: Users can easily create and post new ride offerings with details like origin, destination, time, and available seats.
+- **Search & Join Rides**: Intuitive search functionality to find available rides based on location and time. Users can join existing rides.
+- **Manage & Edit Rides**: Users can view, edit, and cancel their offered and joined rides.
+- **Location Selection**: Integrated location selection for precise origin and destination points.
+- **Responsive Design**: A user-friendly interface that works seamlessly across various devices.
+- **WhatsApp Integration**: Prompt to connect with ride participants via WhatsApp.
 
-- **React:** A JavaScript library for building user interfaces.
-- **Vite:** A fast build tool for modern web projects.
-- **TypeScript:** A superset of JavaScript that adds static typing.
-- **Shadcn UI:** A collection of reusable components for building beautiful user interfaces.
-- **Tailwind CSS:** A utility-first CSS framework for rapidly styling applications.
-- **React Router DOM:** For declarative routing in React applications.
-- **@tanstack/react-query:** For data fetching, caching, and state management.
-- **Zod, React Hook Form, @hookform/resolvers:** For form validation.
-- **Date-fns, React Day Picker:** For date and time manipulation and selection.
-- **Lucide React:** For icons.
-- **Sonner:** For toasts/notifications.
-- **Embla Carousel React:** For carousels.
-- **Recharts:** For charts.
-- **Class Variance Authority (cva), clsx, tailwind-merge:** For managing CSS classes and variants.
+## 🛠️ Technologies Used
 
-**Backend:**
+- **Frontend**: React.js, TypeScript, Vite
+- **Styling**: Tailwind CSS, Shadcn/UI
+- **Backend & Database**: Supabase (PostgreSQL, Auth, Realtime)
+- **Package Manager**: Bun
 
-- **Supabase:** A "Firebase alternative" providing:
-  - **PostgreSQL Database:** For data storage (indicated by `supabase-schema.sql`).
-  - **Authentication:** For user management (`@supabase/supabase-js`, `src/contexts/AuthContext.tsx`).
-  - **Realtime Database:** Potentially used for real-time updates on ride availability or chat.
+## 🚀 Getting Started
 
-**Development Tools:**
+Follow these instructions to set up the project locally.
 
-- **ESLint, Prettier:** For code linting and formatting.
-- **TypeScript:** For type checking.
+### Prerequisites
 
-## Features
+- Node.js (LTS)
+- Bun
+- Git
+- A Supabase account and project
 
-**User Management & Authentication:**
+### Installation
 
-- User login and registration (`src/pages/Login.tsx`, `src/contexts/AuthContext.tsx`).
-- Session management.
+1.  **Clone the repository:**
 
-**Ride Management:**
+    ```bash
+    git clone https://github.com/your-username/vit-carpool.git
+    cd vit-carpool
+    ```
 
-- **Create Ride:** Users can create new ride offerings (`src/pages/CreateRide.tsx`).
-  - Includes selecting origin, destination, date, time, and available seats.
-- **Search for Rides:** Users can search for available rides (`src/components/rides/SearchForm.tsx`).
-  - Location selection (`src/components/rides/LocationSelect.tsx`).
-- **View Ride Details:** Detailed view of a specific ride (`src/pages/RideDetail.tsx`).
-- **Join/Book Rides:** Users can join existing rides.
-- **Manage Own Rides:** Users can view and manage the rides they have created (`src/pages/ManageRides.tsx`).
-  - Edit ride details (`src/pages/EditRide.tsx`).
-- **View Joined Rides:** Users can see a list of rides they have joined (`src/pages/JoinedRides.tsx`).
-- **Ride Card Component:** A reusable component to display ride information (`src/components/rides/RideCard.tsx`).
+2.  **Install dependencies:**
 
-**User Interface & Experience:**
+    ```bash
+    bun install
+    ```
 
-- Responsive design (indicated by Shadcn UI and Tailwind CSS).
-- Navigation bar (`src/components/layout/Navbar.tsx`).
-- Layout components (`src/components/layout/AppLayout.tsx`).
-- Toast notifications for user feedback (`src/components/ui/toast.tsx`, `src/hooks/use-toast.ts`).
-- Various UI components from Shadcn UI (buttons, forms, dialogs, etc.).
-- WhatsApp integration: `src/components/WhatsAppPrompt.tsx` suggests a feature for contacting ride participants or organizers via WhatsApp.
+3.  **Set up Supabase Environment Variables:**
 
-**Data & State Management:**
+    Create a `.env` file in the root of the project with your Supabase project URL and Anon Key:
 
-- Global state management for authentication (`src/contexts/AuthContext.tsx`).
-- Global state management for rides data (`src/contexts/RidesContext.tsx`).
-- Data fetching and caching with React Query.
+    ```
+    VITE_SUPABASE_URL="YOUR_SUPABASE_URL"
+    VITE_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
+    ```
 
-## Project Structure
+    You can find these values in your Supabase project settings under `API`.
 
-- `public/`: Static assets (favicon, images, sitemap, robots.txt).
-- `src/`: Main application source code.
-  - `src/App.tsx`: Main application component.
-  - `src/main.tsx`: Entry point of the React application.
-  - `src/components/`: Reusable React components.
-    - `src/components/layout/`: Layout-specific components.
-    - `src/components/rides/`: Components related to ride functionality.
-    - `src/components/ui/`: Shadcn UI components.
-  - `src/contexts/`: React Context API for global state management.
-  - `src/hooks/`: Custom React hooks.
-  - `src/lib/`: Utility functions and Supabase client initialization (`src/lib/supabase.ts`, `src/lib/utils.ts`).
-  - `src/pages/`: Page-level components (routes).
-  - `src/types/`: TypeScript type definitions (`src/types/ride.ts`).
-  - `src/App.css`, `src/index.css`: Styling files.
-- `supabase-schema.sql`: Database schema for Supabase.
-- `tailwind.config.ts`, `postcss.config.js`: Tailwind CSS configuration.
-- `vite.config.ts`: Vite build configuration.
-- `tsconfig.json`: TypeScript configuration.
-- `package.json`: Project dependencies and scripts.
-- `vercel.json`: Vercel deployment configuration.
+4.  **Run the development server:**
+
+    ```bash
+    bun dev
+    ```
+
+    The application will be accessible at `http://localhost:5173` (or another port if 5173 is in use).
+
+### Database Setup (Supabase)
+
+The `supabase-schema.sql` file contains the SQL schema for your Supabase project. You can import this directly into your Supabase SQL Editor to set up the necessary tables and functions.
+
+1.  Go to your Supabase project dashboard.
+2.  Navigate to the `SQL Editor`.
+3.  Create a new query and paste the contents of [`supabase-schema.sql`](supabase-schema.sql) into it.
+4.  Run the query to create your tables and policies.
+
+## 💡 Usage
+
+1.  **Register/Login**: Create a new account or log in with existing credentials.
+2.  **Offer a Ride**: Navigate to the "Create Ride" page to post details about a ride you're offering.
+3.  **Find a Ride**: Use the search functionality on the homepage to find available rides.
+4.  **Manage Rides**: View and manage your offered and joined rides from the "Manage Rides" and "Joined Rides" sections.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1.  Fork the repository.
+2.  Create a new branch (`git checkout -b feature/your-feature-name`).
+3.  Make your changes.
+4.  Commit your changes (`git commit -m 'Add some feature'`).
+5.  Push to the branch (`git push origin feature/your-feature-name`).
+6.  Open a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
