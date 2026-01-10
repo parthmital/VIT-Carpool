@@ -174,12 +174,12 @@ export default function RideDetail() {
 		}
 
 		const message = encodeURIComponent(
-			`Hi! I joined your ride from ${ride.source} to ${ride.destination} on ${formattedDate}.`
+			`Hi! I joined your ride from ${ride.source} to ${ride.destination} on ${formattedDate}.`,
 		);
 
 		window.open(
 			`https://wa.me/${ride.creatorWhatsApp}?text=${message}`,
-			"_blank"
+			"_blank",
 		);
 	};
 
@@ -327,8 +327,8 @@ export default function RideDetail() {
 											? "Leaving..."
 											: "Joining..."
 										: joined
-										? "Leave Ride"
-										: "Join This Ride"}
+											? "Leave Ride"
+											: "Join This Ride"}
 								</Button>
 							)}
 						</div>

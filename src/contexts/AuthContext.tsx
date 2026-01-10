@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 			return true;
 		},
-		[]
+		[],
 	);
 
 	const loadUserProfile = useCallback(
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			profileLoadInFlight.current = run;
 			return run;
 		},
-		[mapProfileToUser, validateCollegeEmailOrSignOut]
+		[mapProfileToUser, validateCollegeEmailOrSignOut],
 	);
 
 	useEffect(() => {
@@ -229,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 			setUser((prev) => (prev ? { ...prev, whatsApp } : null));
 		},
-		[user]
+		[user],
 	);
 
 	const needsWhatsApp = !!user && !user.whatsApp;
@@ -244,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			logout,
 			setWhatsApp,
 		}),
-		[user, isLoading, needsWhatsApp, login, logout, setWhatsApp]
+		[user, isLoading, needsWhatsApp, login, logout, setWhatsApp],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

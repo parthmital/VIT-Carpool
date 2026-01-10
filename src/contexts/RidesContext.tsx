@@ -139,12 +139,12 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			.on(
 				"postgres_changes",
 				{ event: "*", schema: "public", table: "rides" },
-				() => void reload()
+				() => void reload(),
 			)
 			.on(
 				"postgres_changes",
 				{ event: "*", schema: "public", table: "ride_participants" },
-				() => void reload()
+				() => void reload(),
 			)
 			.subscribe((status) => setRealtimeStatus(status));
 
@@ -184,7 +184,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			if (error) throw error;
 			await reload();
 		},
-		[user, reload]
+		[user, reload],
 	);
 
 	const joinRide = useCallback(
@@ -204,7 +204,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			await reload();
 			return true;
 		},
-		[user, rides, reload]
+		[user, rides, reload],
 	);
 
 	const leaveRide = useCallback(
@@ -224,7 +224,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			await reload();
 			return true;
 		},
-		[user, rides, reload]
+		[user, rides, reload],
 	);
 
 	const deleteRide = useCallback(
@@ -236,7 +236,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 
 			await reload();
 		},
-		[user, reload]
+		[user, reload],
 	);
 
 	const updateRide = useCallback(
@@ -275,7 +275,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 
 			await reload();
 		},
-		[user, reload]
+		[user, reload],
 	);
 
 	const value: RidesContextType = useMemo(
@@ -338,7 +338,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 			updateRide,
 			reload,
 			user,
-		]
+		],
 	);
 
 	return (

@@ -40,7 +40,7 @@ export default function EditRide() {
 
 	const isCreator = useMemo(
 		() => !!ride && ride.creatorId === user?.id,
-		[ride, user?.id]
+		[ride, user?.id],
 	);
 
 	const [isSubmitting, setIsSubmitting] = useState(false);

@@ -137,8 +137,8 @@ export function RideCard({ ride }: RideCardProps) {
 										? "Leaving..."
 										: "Joining..."
 									: joined
-									? "Leave"
-									: "Join"}
+										? "Leave"
+										: "Join"}
 							</Button>
 						)}
 
